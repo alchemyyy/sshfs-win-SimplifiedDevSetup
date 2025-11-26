@@ -1,0 +1,3 @@
+[submodule "sshfs-win"]
+	path = sshfs-win
+	url = https://github.com/winfsp/sshfs-win.git

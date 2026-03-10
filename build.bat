@@ -143,7 +143,7 @@ echo   Build directories ready
 :: ============================================================================
 echo.
 echo [2/6] Applying patches...
-%CYGWIN_ROOT%\bin\bash.exe --login -c "cd '%BUILD_DIR:\=/%/src/sshfs' && for f in '%SSHFS_WIN_DIR:\=/%/patches'/*.patch; do patch --binary -p1 < \"$f\"; done"
+%CYGWIN_ROOT%\bin\bash.exe --login -c "cd '%BUILD_DIR:\=/%/src/sshfs' && patch_failed=0; for f in '%SSHFS_WIN_DIR:\=/%/patches'/*.patch; do echo \"  Applying $(basename \"$f\")...\"; output=$(patch --binary -p1 < \"$f\" 2>&1); rc=$?; echo \"$output\"; if echo \"$output\" | grep -q 'FAILED'; then echo \"  ERROR: Hunk(s) FAILED in $(basename \"$f\")\"; patch_failed=1; elif [ $rc -ne 0 ]; then if echo \"$output\" | grep -q 'Permission denied'; then echo \"  Warning: permission error (non-fatal, patch content applied)\"; else echo \"  ERROR: patch exited with code $rc\"; echo \"  Reason: $output\"; patch_failed=1; fi; fi; done; exit $patch_failed"
 if errorlevel 1 (
     echo ERROR: Failed to apply patches
     exit /b 1

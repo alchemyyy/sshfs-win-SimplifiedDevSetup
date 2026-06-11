@@ -145,16 +145,10 @@ del "%TEMP_REG%" >nul 2>&1
 echo   Registry entries added
 
 echo [5/5] Adding to system PATH and configuring WinFsp...
-:: Check if already in PATH
-echo %PATH% | findstr /I /C:"%INSTALL_DIR%\bin" >nul
+call :AddToSystemPath "%INSTALL_DIR%\bin"
 if errorlevel 1 (
-    :: Get current system PATH from registry
-    for /f "tokens=2*" %%a in ('reg query "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" /v Path 2^>nul ^| findstr /i "Path"') do set "SYSPATH=%%b"
-    :: Add our bin directory
-    reg add "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" /v Path /t REG_EXPAND_SZ /d "%SYSPATH%;%INSTALL_DIR%\bin" /f >nul 2>&1
-    echo   Added %INSTALL_DIR%\bin to system PATH
-) else (
-    echo   Already in PATH
+    echo   ERROR: Failed to update system PATH
+    exit /b 1
 )
 
 :: Ensure WinFsp driver is loaded
@@ -184,3 +178,42 @@ echo   SSH key auth:       net use X: \\sshfs.k\user@host
 echo.
 pause
 endlocal
+exit /b 0
+
+:AddToSystemPath
+set "SSHFS_BIN=%~1"
+set "SYSPATH="
+set "SYSPATH_FOUND="
+
+:: Check the machine PATH, not this process PATH.
+reg query "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" /v Path 2>nul | findstr /I /L /C:"%SSHFS_BIN%" >nul
+if not errorlevel 1 (
+    echo   Already in PATH
+    exit /b 0
+)
+
+:: Read the current machine PATH. Keep the write outside this FOR block so
+:: batch parse-time expansion cannot turn the update into a replacement.
+for /f "tokens=1,2,*" %%a in ('reg query "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" /v Path 2^>nul') do (
+    if /I "%%a"=="Path" (
+        set "SYSPATH=%%c"
+        set "SYSPATH_FOUND=1"
+    )
+)
+
+if not defined SYSPATH_FOUND (
+    echo   ERROR: Could not read system PATH from registry
+    exit /b 1
+)
+
+if defined SYSPATH (
+    set "NEWPATH=%SYSPATH%;%SSHFS_BIN%"
+) else (
+    set "NEWPATH=%SSHFS_BIN%"
+)
+
+reg add "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" /v Path /t REG_EXPAND_SZ /d "%NEWPATH%" /f >nul 2>&1
+if errorlevel 1 exit /b 1
+
+echo   Added %SSHFS_BIN% to system PATH
+exit /b 0
